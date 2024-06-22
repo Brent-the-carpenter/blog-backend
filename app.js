@@ -6,6 +6,7 @@ import debug from "debug";
 import createError from "http-errors";
 import helmet from "helmet";
 import cors from "cors";
+import routes from "./routes";
 
 const Secret = import.meta.env.SECRET;
 const MONGO_URI = import.meta.env.MONGO_URI;
