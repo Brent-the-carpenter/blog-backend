@@ -21,15 +21,15 @@ This is my Odin Project submission for the blog API project. The goal of this pr
   - **Response**: `200 OK`
   - **Response Body**: Post object in JSON format.
 - **POST /api/v1/posts**
-  - Creates a new post (authentication required).
+  - Creates a new post (authentication/admin required).
   - **Response**: `201 Created`
   - **Response Body**: Created post object in JSON format.
 - **PUT /api/v1/posts/:id**
-  - Updates an existing post by its ID (authentication required).
+  - Updates an existing post by its ID (authentication/admin required).
   - **Response**: `200 OK`
   - **Response Body**: Updated post object in JSON format.
 - **DELETE /api/v1/posts/:id**
-  - Deletes a post by its ID (authentication required).
+  - Deletes a post by its ID (authentication/admin required).
   - **Response**: `204 No Content`
 
 ### Comments on Post Routes

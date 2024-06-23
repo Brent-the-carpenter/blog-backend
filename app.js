@@ -7,8 +7,7 @@ import createError from "http-errors";
 import helmet from "helmet";
 import cors from "cors";
 import { post, auth, user } from "./routes/index.js";
-import passportConfig from "./config/PassportConfig.js";
-import passport from "passport";
+import passport from "./config/PassportConfig.js";
 
 const debugApp = debug("App:");
 debugApp.color = debug.colors[3];
@@ -35,7 +34,7 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(limit);
 //Initialize passport config and use it in app
-passportConfig();
+
 app.use(passport.initialize());
 app.use(function (req, res, next) {
   next(createError(404));

@@ -1,3 +1,10 @@
 {
-  "cSpell.words": ["DATETIME", "jwt", "luxon", "serverstart", "signup"]
+  "cSpell.words": [
+    "cloudinary",
+    "DATETIME",
+    "jwt",
+    "luxon",
+    "serverstart",
+    "signup"
+  ]
 }
