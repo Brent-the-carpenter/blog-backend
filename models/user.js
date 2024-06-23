@@ -5,7 +5,7 @@ const Schema = mongoose.Schema;
 const UserSchema = new Schema({
   first_name: { type: String, required: true, minLength: 2 },
   last_name: { type: String, required: true, minLength: 2 },
-  auth_token: { type: String, required: true, unique: true },
+  auth_token: { type: String, unique: true },
   user_name: { type: String, required: true, unique: true, minlength: 4 },
   password: { type: String, required: true, minLength: 12 },
   comments: [{ type: Schema.ObjectId, ref: "Comment" }],

@@ -1,6 +1,6 @@
-import login from "./login";
-import post from "./post";
-import user from "./user";
-import comment from "./comment";
+import auth from "./authRoute";
+import post from "./postRoute";
+import user from "./userRoute";
+import comment from "./commentRoute";
 
 export { login, post, user, comment };

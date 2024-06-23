@@ -6,10 +6,12 @@ import debug from "debug";
 import createError from "http-errors";
 import helmet from "helmet";
 import cors from "cors";
-import routes from "./routes";
+import { post, login, user, comment } from "./routes";
+import passportConfig from "./config/PassportConfig";
+import passport from "passport";
 
-const Secret = import.meta.env.SECRET;
-const MONGO_URI = import.meta.env.MONGO_URI;
+const Secret = process.env.SECRET;
+const MONGO_URI = process.env.MONGO_URI;
 
 const limit = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -23,14 +25,23 @@ async function main() {
 main().catch((err) => console.log(`Could not connect to mongodb ${err}`));
 
 const app = express();
+
 app.use(cors());
 app.use(helmet());
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(limit);
+//Initialize passport config and use it in app
+passportConfig();
+app.use(passport.initialize());
 app.use(function (req, res, next) {
   next(createError(404));
 });
+
+app.get("/api/login", auth);
+app.get("/api/posts", post);
+app.get("/api/users", user);
+app.get("/api/comments", comment);
 app.use((error, req, res, next) => {
   res.status(error.status || 500);
   res.json({
