@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-import app from "../app";
+import app from "../app.js";
 import http from "http";
 import mongoose from "mongoose";
+import debug from "debug";
 
+const debugServer = debug("Server:");
 const port = normalizePort(process.env.PORT || "3000");
 app.set("port", port);
 
@@ -45,7 +47,7 @@ function onError(error) {
 function onListening() {
   const addr = server.address();
   const bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
-  console.log("Listening on " + bind);
+  debugServer("Listening on " + bind);
 }
 
 function gracefullyShutDown() {
@@ -54,10 +56,10 @@ function gracefullyShutDown() {
       console.log(err);
     }
     await mongoose.connection.close();
-    console.log("MongoDB connection closed");
+    debugServer("MongoDB connection closed");
+    debugServer("HTTP server closed");
+    process.exit(0);
   });
-  console.log("Server successfully shutdown");
-  process.exit(0);
 }
 
 process.on("SIGINT", gracefullyShutDown).on("SIGTERM", gracefullyShutDown);

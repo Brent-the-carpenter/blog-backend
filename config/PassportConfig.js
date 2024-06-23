@@ -1,6 +1,6 @@
 import passportStrategy from "passport-jwt";
 import passport from "passport";
-import User from "../models/user";
+import User from "../models/user.js";
 
 const jwtStrategy = passportStrategy.Strategy;
 const ExtractJwt = passportStrategy.ExtractJwt;

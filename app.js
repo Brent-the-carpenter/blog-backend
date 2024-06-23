@@ -6,10 +6,12 @@ import debug from "debug";
 import createError from "http-errors";
 import helmet from "helmet";
 import cors from "cors";
-import { post, login, user, comment } from "./routes";
-import passportConfig from "./config/PassportConfig";
+import { post, auth, user } from "./routes/index.js";
+import passportConfig from "./config/PassportConfig.js";
 import passport from "passport";
 
+const debugApp = debug("App:");
+debugApp.color = debug.colors[3];
 const Secret = process.env.SECRET;
 const MONGO_URI = process.env.MONGO_URI;
 
@@ -20,6 +22,7 @@ const limit = rateLimit({
 });
 //connect to db
 async function main() {
+  debugApp("Connecting to MongoDB");
   await mongoose.connect(MONGO_URI);
 }
 main().catch((err) => console.log(`Could not connect to mongodb ${err}`));
@@ -38,10 +41,10 @@ app.use(function (req, res, next) {
   next(createError(404));
 });
 
-app.get("/api/login", auth);
-app.get("/api/posts", post);
-app.get("/api/users", user);
-app.get("/api/comments", comment);
+app.get("/api/v1/auth", auth);
+app.get("/api/v1/posts", post);
+app.get("/api/v1/users", user);
+
 app.use((error, req, res, next) => {
   res.status(error.status || 500);
   res.json({
