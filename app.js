@@ -36,19 +36,19 @@ app.use(limit);
 //Initialize passport config and use it in app
 
 app.use(passport.initialize());
+
+app.use("/api/v1/auth", auth);
+app.use("/api/v1/posts", post);
+app.use("/api/v1/users", user);
 app.use(function (req, res, next) {
   next(createError(404));
 });
 
-app.get("/api/v1/auth", auth);
-app.get("/api/v1/posts", post);
-app.get("/api/v1/users", user);
-
 app.use((error, req, res, next) => {
-  res.status(error.status || 500);
-  res.json({
+  res.status(error.status || 500).json({
     error: {
       message: error.message,
+      ...(process.env.NODE_ENV === "development" ? { stack: error.stack } : {}),
     },
   });
 });

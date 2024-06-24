@@ -3,28 +3,27 @@ import { body, validationResult } from "express-validator";
 import Post from "../models/post.js";
 import uploadImage from "../config/cloudinaryConfig.js";
 import debug from "debug";
+import Comment from "../models/comment.js";
+import User from "../models/user.js";
+import mongoose from "mongoose";
+import createError from "http-errors";
+
 const debugPost = debug("Post:");
 
 const getPosts = asyncHandler(async (req, res, next) => {
   const posts = await Post.find({}).exec();
   if (!posts.length) {
-    return res.status(404).json({
-      error: "Not Found",
-      message: "Resource not found",
-    });
+    return next(createError(404, "Post not found"));
   }
-  res.status(200).json(posts);
+  return res.status(200).json(posts);
 });
 
 const getPost = asyncHandler(async (req, res, next) => {
   const post = await Post.findById(req.params.id).exec();
   if (!post) {
-    return res.status(404).json({
-      error: "Not Found",
-      message: "Resource not found",
-    });
+    return next(createError(404, "Post not found"));
   }
-  res.status(200).json(post);
+  return res.status(200).json(post);
 });
 
 const createPost = [
@@ -35,7 +34,7 @@ const createPost = [
   body("title", "Title of blog post is required.").trim().escape(),
   body("headings.*").escape(),
   body("paragraphs.*").escape(),
-  body("published").isBoolean().withMessage("boolean is expected."),
+  body("published").optional().isBoolean().withMessage("boolean is expected."),
 
   asyncHandler(async (req, res, next) => {
     const { author, content, title, headings, paragraphs, published } =
@@ -47,39 +46,45 @@ const createPost = [
       });
     }
     try {
-      const imageUrls = [];
-      if (req.files && req.files.length) {
-        const files = req.files;
-        const uploadPromises = files.map((file) => uploadImage(file));
-        imageUrls = await Promise.all(uploadPromises);
-      }
       const newPost = new Post({
         author,
         content,
         title,
         headings,
         paragraphs,
-        images: imageUrls,
         published,
       });
+      const imageUrls = [];
+      if (req.files && req.files.length) {
+        const files = req.files;
+        const uploadPromises = files.map((file) => uploadImage(file));
+        newPost.images = await Promise.all(uploadPromises);
+      }
+
       await newPost.save();
-      res.status(201).json(newPost);
+      return res.status(201).json(newPost);
     } catch (error) {
       debugPost(error);
-      return next(error);
+      return next(createError(500, "An error ocurred"));
     }
   }),
 ];
 
 const updatePost = [
-  body("content", "Please specify the type of content of this blog.")
+  body("content")
+    .optional()
     .trim()
-    .escape(),
-
-  body("title", "Title of blog post is required.").trim().escape(),
-  body("headings.*").escape(),
-  body("paragraphs.*").escape(),
-  body("published").isBoolean().withMessage("boolean is expected."),
+    .escape()
+    .withMessage("Please specify the type of content of this blog."),
+  body("title")
+    .optional()
+    .trim()
+    .escape()
+    .withMessage("Title of blog post is required."),
+  body("headings.*").optional().escape(),
+  body("paragraphs.*").optional().escape(),
+  body("published").optional().isBoolean().withMessage("boolean is expected."),
+  body("_id").notEmpty().withMessage("Post ID is required."),
   asyncHandler(async (req, res, next) => {
     const { _id, author, content, title, headings, paragraphs, published } =
       req.body;
@@ -90,44 +95,89 @@ const updatePost = [
       });
     }
     try {
-      const imageUrls = [];
+      const updateData = {
+        ...(author && { author }),
+        ...(content && { content }),
+        ...(title && { title }),
+        ...(headings && { headings }),
+        ...(paragraphs && { paragraphs }),
+        ...(published !== undefined && { published }),
+      };
+
       if (req.files && req.files.length) {
         const files = req.files;
         const uploadPromises = files.map((file) => uploadImage(file));
-        imageUrls = await Promise.all(uploadPromises);
+        updateData.images = await Promise.all(uploadPromises);
       } else if (req.body.images) {
-        imageUrls = req.body.images;
+        updateData.images = req.body.images;
       }
-      const updatePost = new Post({
-        _id: _id,
-        author,
-        content,
-        title,
-        headings,
-        paragraphs,
-        published,
-        images: imageUrls,
-      });
-      const post = await Post.findByIdAndUpdate(updatePost._id, updatePost, {
+
+      const post = await Post.findByIdAndUpdate(_id, updateData, {
         new: true,
-      });
+      }).exec();
+      if (!post) {
+        return next(createError(404, "Post not found"));
+      }
       res.status(200).json(post);
     } catch (error) {
       debugPost(error);
-      next(error);
+      next(createError(500, "An Error ocurred"));
     }
   }),
 ];
 
 const deletePost = asyncHandler(async (req, res, next) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
   try {
-    await Post.findByIdAndDelete(req.params.id).exec();
-    res.status(204).json({
+    // Get post and populate all necessary fields
+    const postToDelete = await Post.findById(req.params.id)
+      .populate({
+        path: "comments",
+        populate: {
+          path: "author",
+          model: "User",
+        },
+      })
+      .session(session);
+
+    if (!postToDelete) {
+      await session.abortTransaction();
+      session.endSession();
+      return next(createError(404, "Post not found"));
+    }
+
+    // Delete comments
+    if (postToDelete.comments.length) {
+      const commentIds = postToDelete.comments.map((comment) => comment._id);
+      await Comment.deleteMany({
+        _id: { $in: commentIds },
+      }).session(session);
+
+      // Update User refs to comments
+      const userIds = postToDelete.comments.map(
+        (comment) => comment.author._id
+      );
+      await User.updateMany(
+        { _id: { $in: userIds } },
+        { $pull: { comments: { $in: commentIds } } }
+      ).session(session);
+    }
+
+    // Delete post
+    await Post.findByIdAndDelete(postToDelete._id).session(session);
+    await session.commitTransaction();
+    session.endSession();
+    return res.status(204).json({
       message: "204 No Content",
     });
   } catch (error) {
-    res.status(404).json({ error: "Not Found", message: "Resource not found" });
+    await session.abortTransaction();
+    session.endSession();
+    return next(createError(500, "An error occurred"));
   }
 });
+
+export { getPost, getPosts, deletePost, createPost, updatePost };
 
 export { getPost, getPosts, deletePost, createPost, updatePost };
