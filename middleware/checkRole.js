@@ -5,6 +5,6 @@ const checkPermissions = function (req, res, next) {
       message: "You do not have permission to access this resource",
     });
   }
-  next();
+  return next();
 };
 export default checkPermissions;

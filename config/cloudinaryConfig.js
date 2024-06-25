@@ -7,7 +7,7 @@ cloudinary.config({
   secure: true,
 });
 
-const uploadImage = async (fileBuffer) => {
+const uploadImage = async (file) => {
   try {
     const uploadResult = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
@@ -16,6 +16,7 @@ const uploadImage = async (fileBuffer) => {
           folder: "Blog post images",
           unique_filename: false,
           overwrite: true,
+          public_id: file.originalname.split(".")[0],
         },
         (err, result) => {
           if (err) {
@@ -24,9 +25,9 @@ const uploadImage = async (fileBuffer) => {
           resolve(result);
         }
       );
-      uploadStream.end(fileBuffer);
+      uploadStream.end(file.buffer);
     });
-    return uploadResult;
+    return uploadResult.secure_url;
   } catch (error) {
     console.error("Error uploading image", error);
     throw new Error("Problem uploading image");

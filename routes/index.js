@@ -1,5 +1,5 @@
-import auth from "./authRoute.js";
-import post from "./postRoute.js";
-import user from "./userRoute.js";
-
-export { auth, post, user };
+import authRouter from "./authRoute.js";
+import postRouter from "./postRoute.js";
+import userRouter from "./userRoute.js";
+import commentRouter from "./commentRoute.js";
+export { authRouter, postRouter, userRouter, commentRouter };

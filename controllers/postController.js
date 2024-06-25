@@ -13,13 +13,13 @@ const debugPost = debug("Post:");
 const getPosts = asyncHandler(async (req, res, next) => {
   const posts = await Post.find({}).exec();
   if (!posts.length) {
-    return next(createError(404, "Post not found"));
+    return next(createError(404, "Posts not found"));
   }
   return res.status(200).json(posts);
 });
 
 const getPost = asyncHandler(async (req, res, next) => {
-  const post = await Post.findById(req.params.id).exec();
+  const post = await Post.findById(req.params.postId).exec();
   if (!post) {
     return next(createError(404, "Post not found"));
   }
@@ -37,8 +37,7 @@ const createPost = [
   body("published").optional().isBoolean().withMessage("boolean is expected."),
 
   asyncHandler(async (req, res, next) => {
-    const { author, content, title, headings, paragraphs, published } =
-      req.body;
+    const { content, title, headings, paragraphs, published } = req.body;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -47,21 +46,21 @@ const createPost = [
     }
     try {
       const newPost = new Post({
-        author,
+        author: req.user._id,
         content,
         title,
         headings,
         paragraphs,
         published,
       });
-      const imageUrls = [];
+
       if (req.files && req.files.length) {
         const files = req.files;
         const uploadPromises = files.map((file) => uploadImage(file));
         newPost.images = await Promise.all(uploadPromises);
       }
 
-      await newPost.save();
+      const savedPost = await newPost.save();
       return res.status(201).json(newPost);
     } catch (error) {
       debugPost(error);
@@ -71,22 +70,17 @@ const createPost = [
 ];
 
 const updatePost = [
-  body("content")
+  body("content", "Please specify the type of content of this blog.")
     .optional()
     .trim()
-    .escape()
-    .withMessage("Please specify the type of content of this blog."),
-  body("title")
-    .optional()
-    .trim()
-    .escape()
-    .withMessage("Title of blog post is required."),
+    .escape(),
+  body("title", "Title of blog post is required.").optional().trim().escape(),
   body("headings.*").optional().escape(),
   body("paragraphs.*").optional().escape(),
   body("published").optional().isBoolean().withMessage("boolean is expected."),
   body("_id").notEmpty().withMessage("Post ID is required."),
   asyncHandler(async (req, res, next) => {
-    const { _id, author, content, title, headings, paragraphs, published } =
+    const { id, author, content, title, headings, paragraphs, published } =
       req.body;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -112,7 +106,7 @@ const updatePost = [
         updateData.images = req.body.images;
       }
 
-      const post = await Post.findByIdAndUpdate(_id, updateData, {
+      const post = await Post.findByIdAndUpdate(id, updateData, {
         new: true,
       }).exec();
       if (!post) {
@@ -131,7 +125,7 @@ const deletePost = asyncHandler(async (req, res, next) => {
   session.startTransaction();
   try {
     // Get post and populate all necessary fields
-    const postToDelete = await Post.findById(req.params.id)
+    const postToDelete = await Post.findById(req.params.postId)
       .populate({
         path: "comments",
         populate: {
@@ -140,7 +134,6 @@ const deletePost = asyncHandler(async (req, res, next) => {
         },
       })
       .session(session);
-
     if (!postToDelete) {
       await session.abortTransaction();
       session.endSession();
@@ -150,9 +143,12 @@ const deletePost = asyncHandler(async (req, res, next) => {
     // Delete comments
     if (postToDelete.comments.length) {
       const commentIds = postToDelete.comments.map((comment) => comment._id);
-      await Comment.deleteMany({
-        _id: { $in: commentIds },
-      }).session(session);
+      await Comment.deleteMany(
+        {
+          _id: { $in: commentIds },
+        },
+        { session }
+      );
 
       // Update User refs to comments
       const userIds = postToDelete.comments.map(
@@ -160,8 +156,9 @@ const deletePost = asyncHandler(async (req, res, next) => {
       );
       await User.updateMany(
         { _id: { $in: userIds } },
-        { $pull: { comments: { $in: commentIds } } }
-      ).session(session);
+        { $pull: { comments: { $in: commentIds } } },
+        { session }
+      );
     }
 
     // Delete post
@@ -177,7 +174,5 @@ const deletePost = asyncHandler(async (req, res, next) => {
     return next(createError(500, "An error occurred"));
   }
 });
-
-export { getPost, getPosts, deletePost, createPost, updatePost };
 
 export { getPost, getPosts, deletePost, createPost, updatePost };

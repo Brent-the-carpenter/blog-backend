@@ -11,7 +11,7 @@ const PostSchema = new Schema(
     paragraphs: [{ type: String }],
     images: [{ type: String }],
     comments: [{ type: Schema.ObjectId, ref: "Comment" }],
-    published: { type: Boolean, default: false, required: true },
+    published: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

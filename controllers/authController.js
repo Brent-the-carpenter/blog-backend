@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import debug from "debug";
 import passport from "passport";
 
-const debugAuth = debug("app:Auth");
+const debugAuth = debug("Auth:");
 
 const signUp = [
   body("first_name", "first name is required")
@@ -35,6 +35,7 @@ const signUp = [
     ),
   body("confirm_password").custom(isSamePass),
   asyncHandler(async (req, res, next) => {
+    debugAuth(req.body);
     const { first_name, last_name, user_name, password } = req.body;
     const errors = validationResult(req);
     // check for errors

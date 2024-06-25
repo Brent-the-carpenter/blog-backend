@@ -11,17 +11,16 @@ opts.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
 opts.secretOrKey = process.env.SECRET_KEY;
 
 passport.use(
-  new jwtStrategy(opts, function (jwt_payload, done) {
-    User.findById(jwt_payload._id, (err, user) => {
-      if (err) {
-        return done(err, false);
-      }
-      if (user) {
-        return done(null, user);
-      } else {
+  new jwtStrategy(opts, async function (jwt_payload, done) {
+    try {
+      const user = await User.findById(jwt_payload._id);
+      if (!user) {
         return done(null, false);
       }
-    });
+      return done(null, user);
+    } catch (error) {
+      return done(error, false);
+    }
   })
 );
 export default passport;

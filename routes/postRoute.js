@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import authenticate from "../middleware/authenticate.js";
 import checkPermissions from "../middleware/checkRole.js";
-
+import commentRouter from "./commentRoute.js";
 import {
   getPost,
   getPosts,
@@ -19,7 +19,7 @@ const router = express.Router();
 router.get("/", getPosts);
 
 //GET post by id
-router.get("/:id", getPost);
+router.get("/:postId", getPost);
 
 //POST Create new post
 router.post(
@@ -32,7 +32,7 @@ router.post(
 
 //PUT Update  post by id
 router.put(
-  "/:id",
+  "/:postId",
   upload.array("images", 3),
   authenticate(),
   checkPermissions,
@@ -40,6 +40,6 @@ router.put(
 );
 
 //Delete post by id
-router.delete("/:id", authenticate(), checkPermissions, deletePost);
+router.delete("/:postId", authenticate(), checkPermissions, deletePost);
 
 export default router;

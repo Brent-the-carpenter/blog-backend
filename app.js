@@ -1,4 +1,4 @@
-import express from "express";
+import express, { urlencoded } from "express";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
@@ -6,7 +6,12 @@ import debug from "debug";
 import createError from "http-errors";
 import helmet from "helmet";
 import cors from "cors";
-import { post, auth, user } from "./routes/index.js";
+import {
+  postRouter,
+  authRouter,
+  userRouter,
+  commentRouter,
+} from "./routes/index.js";
 import passport from "./config/PassportConfig.js";
 
 const debugApp = debug("App:");
@@ -31,15 +36,18 @@ const app = express();
 app.use(cors());
 app.use(helmet());
 app.use(morgan("dev"));
+app.use(urlencoded({ extended: true }));
 app.use(express.json());
 app.use(limit);
 //Initialize passport config and use it in app
 
 app.use(passport.initialize());
 
-app.use("/api/v1/auth", auth);
-app.use("/api/v1/posts", post);
-app.use("/api/v1/users", user);
+app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/users", userRouter);
+app.use("/api/v1/posts", postRouter);
+app.use("/api/v1/posts/:id/comment", commentRouter);
+
 app.use(function (req, res, next) {
   next(createError(404));
 });
