@@ -7,8 +7,21 @@ import Comment from "../models/comment.js";
 import User from "../models/user.js";
 import mongoose from "mongoose";
 import createError from "http-errors";
+import sanitizeHtml from "sanitize-html";
 
 const debugPost = debug("Post:");
+
+const sanitizeContent = (value) => {
+  return sanitizeHtml(value, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat("img"),
+    allowedAttributes: {
+      "*": ["style"],
+      a: ["href", "name", "target"],
+      img: ["src"],
+    },
+    allowedSchemes: ["data", "http", "https"],
+  });
+};
 
 const getPosts = asyncHandler(async (req, res, next) => {
   const posts = await Post.find({}).exec();
@@ -27,30 +40,32 @@ const getPost = asyncHandler(async (req, res, next) => {
 });
 
 const createPost = [
-  body("content", "Please specify the type of content of this blog.")
+  body("category", "Please specify the category of the content of this blog.")
     .trim()
     .escape(),
 
   body("title", "Title of blog post is required.").trim().escape(),
-  body("headings.*").escape(),
-  body("paragraphs.*").escape(),
+  body("content").customSanitizer(sanitizeContent),
   body("published").optional().isBoolean().withMessage("boolean is expected."),
 
   asyncHandler(async (req, res, next) => {
-    const { content, title, headings, paragraphs, published } = req.body;
+    const { content, title, category, published } = req.body;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
         errors: errors.array(),
       });
     }
+    if (!req.user || !req.user._id) {
+      debugPost("User not authenticated");
+      return next(createError(401, "Authentication required"));
+    }
     try {
       const newPost = new Post({
         author: req.user._id,
         content,
         title,
-        headings,
-        paragraphs,
+        category,
         published,
       });
 
@@ -70,18 +85,16 @@ const createPost = [
 ];
 
 const updatePost = [
-  body("content", "Please specify the type of content of this blog.")
+  body("category", "Please specify the category of the content of this blog.")
     .optional()
     .trim()
     .escape(),
   body("title", "Title of blog post is required.").optional().trim().escape(),
-  body("headings.*").optional().escape(),
-  body("paragraphs.*").optional().escape(),
+  body("content").optional().customSanitizer(sanitizeContent),
   body("published").optional().isBoolean().withMessage("boolean is expected."),
-  body("_id").notEmpty().withMessage("Post ID is required."),
+
   asyncHandler(async (req, res, next) => {
-    const { id, author, content, title, headings, paragraphs, published } =
-      req.body;
+    const { author, content, title, category, published } = req.body;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -91,10 +104,9 @@ const updatePost = [
     try {
       const updateData = {
         ...(author && { author }),
-        ...(content && { content }),
+        ...(category && { category }),
         ...(title && { title }),
-        ...(headings && { headings }),
-        ...(paragraphs && { paragraphs }),
+        ...(content && { content }),
         ...(published !== undefined && { published }),
       };
 
@@ -106,7 +118,7 @@ const updatePost = [
         updateData.images = req.body.images;
       }
 
-      const post = await Post.findByIdAndUpdate(id, updateData, {
+      const post = await Post.findByIdAndUpdate(req.params.postId, updateData, {
         new: true,
       }).exec();
       if (!post) {
