@@ -9,6 +9,7 @@ import {
   createPost,
   deletePost,
   updatePost,
+  likePost,
 } from "../controllers/postController.js";
 
 const storage = multer.memoryStorage();
@@ -41,5 +42,7 @@ router.put(
 
 //Delete post by id
 router.delete("/:postId", authenticate(), checkPermissions, deletePost);
+
+router.post("/:postId/like", authenticate(), likePost);
 
 export default router;
