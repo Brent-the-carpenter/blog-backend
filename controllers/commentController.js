@@ -11,19 +11,28 @@ const debugComment = debug("Comment:");
 
 // GET all comments
 const getComments = asyncHandler(async (req, res, next) => {
-  const comments = await Comment.find({}).exec();
-  if (!comments) {
-    return next(createError(404, "Comments Not Found"));
+  try {
+    const comments = await Comment.find({}).exec();
+    if (!comments) {
+      return next(createError(404, "Comments Not Found"));
+    }
+    return res.status(200).json(comments);
+  } catch (error) {
+    return next(createError(500, "Internal Server Error"));
   }
-  return res.status(200).json(comments);
 });
 // GET comment by id
 const getComment = asyncHandler(async (req, res, next) => {
-  const comment = Comment.findById(req.params.commentId).exec();
-  if (!comment) {
-    return next(createError(404, "Comment Not Found"));
+  try {
+    const comment = await Comment.findById(req.params.commentId).exec();
+    if (!comment) {
+      return next(createError(404, "Comment Not Found"));
+    }
+    debugComment(comment);
+    return res.status(200).json(comment);
+  } catch (error) {
+    return next(createError(500, "Internal Server Error"));
   }
-  return res.status(200).json(comment);
 });
 
 //Post create new comment
@@ -32,7 +41,7 @@ const createComment = [
   asyncHandler(async (req, res, next) => {
     const session = await mongoose.startSession();
     session.startTransaction();
-    const { user, message, post } = req.body;
+    const { message } = req.body;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       await session.abortTransaction();
@@ -41,9 +50,22 @@ const createComment = [
         errors: errors.array(),
       });
     }
+    console.log(req.user);
+    // const post = req.params.postId;
+    // const userId = req.user._id;
+    if (!req.params.postId) {
+      return next(createError(404, "Post not found"));
+    }
+    if (typeof req.user === "undefined") {
+      return next(createError(401, "Authentication required"));
+    }
     try {
       // Save new comment
-      const comment = new Comment({ user, message, post });
+      const comment = new Comment({
+        post: req.params.postId,
+        message,
+        user: req.user._id,
+      });
       const newComment = await comment.save({ session });
 
       // Update users comments field
@@ -59,7 +81,13 @@ const createComment = [
         { session }
       );
       await session.commitTransaction();
-      return res.status(201).json(newComment);
+      const comments = await Comment.find({ post: req.params.postId }, null, {
+        sort: { time_stamp: -1 },
+      })
+        .populate("user")
+
+        .exec();
+      return res.status(201).json(comments);
     } catch (error) {
       await session.abortTransaction();
 
@@ -84,7 +112,7 @@ const updateComment = [
     }
     try {
       const comment = await Comment.findByIdAndUpdate(
-        id,
+        req.params.commentId,
         { message, time_stamp: Date.now() },
         { new: true }
       ).exec();
@@ -105,9 +133,9 @@ const deleteComment = asyncHandler(async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
-    const commentToDelete = await Comment.findById(req.body.id).session(
-      session
-    );
+    const commentToDelete = await Comment.findById(
+      req.params.commentId
+    ).session(session);
     if (!commentToDelete) {
       await session.abortTransaction();
       return next(createError(404, "Comment Not Found"));

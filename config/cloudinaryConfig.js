@@ -27,7 +27,12 @@ const uploadImage = async (file) => {
       );
       uploadStream.end(file.buffer);
     });
-    return uploadResult.secure_url;
+    console.log(uploadResult);
+    const uploadObject = {
+      url: uploadResult.secure_url,
+      name: uploadResult.display_name,
+    };
+    return uploadObject;
   } catch (error) {
     console.error("Error uploading image", error);
     throw new Error("Problem uploading image");

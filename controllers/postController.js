@@ -7,11 +7,24 @@ import Comment from "../models/comment.js";
 import User from "../models/user.js";
 import mongoose from "mongoose";
 import createError from "http-errors";
+import sanitizeHtml from "sanitize-html";
 
 const debugPost = debug("Post:");
 
+const sanitizeContent = (value) => {
+  return sanitizeHtml(value, {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat("img"),
+    allowedAttributes: {
+      "*": ["style"],
+      a: ["href", "name", "target"],
+      img: ["src"],
+    },
+    allowedSchemes: ["data", "http", "https"],
+  });
+};
+
 const getPosts = asyncHandler(async (req, res, next) => {
-  const posts = await Post.find({}).exec();
+  const posts = await Post.find({}).populate("author").exec();
   if (!posts.length) {
     return next(createError(404, "Posts not found"));
   }
@@ -19,7 +32,15 @@ const getPosts = asyncHandler(async (req, res, next) => {
 });
 
 const getPost = asyncHandler(async (req, res, next) => {
-  const post = await Post.findById(req.params.postId).exec();
+  const post = await Post.findById(req.params.postId)
+    .populate("author")
+    .populate({
+      path: "comments",
+      populate: { path: "user" },
+      options: { sort: { time_stamp: -1 } },
+    })
+
+    .exec();
   if (!post) {
     return next(createError(404, "Post not found"));
   }
@@ -27,30 +48,32 @@ const getPost = asyncHandler(async (req, res, next) => {
 });
 
 const createPost = [
-  body("content", "Please specify the type of content of this blog.")
+  body("category", "Please specify the category of the content of this blog.")
     .trim()
     .escape(),
 
   body("title", "Title of blog post is required.").trim().escape(),
-  body("headings.*").escape(),
-  body("paragraphs.*").escape(),
+  body("content").customSanitizer(sanitizeContent),
   body("published").optional().isBoolean().withMessage("boolean is expected."),
 
   asyncHandler(async (req, res, next) => {
-    const { content, title, headings, paragraphs, published } = req.body;
+    const { content, title, category, published } = req.body;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
         errors: errors.array(),
       });
     }
+    if (!req.user || !req.user._id) {
+      debugPost("User not authenticated");
+      return next(createError(401, "Authentication required"));
+    }
     try {
       const newPost = new Post({
         author: req.user._id,
         content,
         title,
-        headings,
-        paragraphs,
+        category,
         published,
       });
 
@@ -70,18 +93,16 @@ const createPost = [
 ];
 
 const updatePost = [
-  body("content", "Please specify the type of content of this blog.")
+  body("category", "Please specify the category of the content of this blog.")
     .optional()
     .trim()
     .escape(),
   body("title", "Title of blog post is required.").optional().trim().escape(),
-  body("headings.*").optional().escape(),
-  body("paragraphs.*").optional().escape(),
+  body("content").optional().customSanitizer(sanitizeContent),
   body("published").optional().isBoolean().withMessage("boolean is expected."),
-  body("_id").notEmpty().withMessage("Post ID is required."),
+
   asyncHandler(async (req, res, next) => {
-    const { id, author, content, title, headings, paragraphs, published } =
-      req.body;
+    const { author, content, title, category, published } = req.body;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -91,10 +112,9 @@ const updatePost = [
     try {
       const updateData = {
         ...(author && { author }),
-        ...(content && { content }),
+        ...(category && { category }),
         ...(title && { title }),
-        ...(headings && { headings }),
-        ...(paragraphs && { paragraphs }),
+        ...(content && { content }),
         ...(published !== undefined && { published }),
       };
 
@@ -106,7 +126,7 @@ const updatePost = [
         updateData.images = req.body.images;
       }
 
-      const post = await Post.findByIdAndUpdate(id, updateData, {
+      const post = await Post.findByIdAndUpdate(req.params.postId, updateData, {
         new: true,
       }).exec();
       if (!post) {
@@ -175,4 +195,15 @@ const deletePost = asyncHandler(async (req, res, next) => {
   }
 });
 
-export { getPost, getPosts, deletePost, createPost, updatePost };
+const likePost = asyncHandler(async (req, res, next) => {
+  console.log(req.params.postId);
+  const post = await Post.findById(req.params.postId).exec();
+  if (!post) {
+    return next(createError(404, "Post not found"));
+  }
+  post.likes += 1;
+  await post.save();
+  return res.status(200).json(post);
+});
+
+export { getPost, getPosts, deletePost, createPost, updatePost, likePost };

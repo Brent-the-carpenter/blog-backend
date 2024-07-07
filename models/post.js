@@ -4,12 +4,12 @@ const Schema = mongoose.Schema;
 
 const PostSchema = new Schema(
   {
-    content: { type: String, required: true },
+    category: { type: String, required: true },
     author: { type: Schema.ObjectId, ref: "User", required: true },
     title: { type: String, required: true },
-    headings: [{ type: String, minlength: 3 }],
-    paragraphs: [{ type: String }],
+    content: { type: String, required: true },
     images: [{ type: String }],
+    likes: { type: Number, default: 0 },
     comments: [{ type: Schema.ObjectId, ref: "Comment" }],
     published: { type: Boolean, default: false },
   },

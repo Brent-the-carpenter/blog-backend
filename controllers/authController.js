@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import debug from "debug";
 import passport from "passport";
+import createError from "http-errors";
 
 const debugAuth = debug("Auth:");
 
@@ -14,9 +15,9 @@ const signUp = [
     .escape()
     .isLength({ min: 2 })
     .withMessage("First name must be at least 2 characters long."),
-  body("last_name", "last name is required")
+  body("email", "email is required")
     .trim()
-    .escape()
+    .normalizeEmail()
     .isLength({ min: 2 })
     .withMessage("Last name must be at least 2 characters long"),
   body("user_name", "User name is required")
@@ -36,7 +37,7 @@ const signUp = [
   body("confirm_password").custom(isSamePass),
   asyncHandler(async (req, res, next) => {
     debugAuth(req.body);
-    const { first_name, last_name, user_name, password } = req.body;
+    const { first_name, email, user_name, password } = req.body;
     const errors = validationResult(req);
     // check for errors
     if (!errors.isEmpty()) {
@@ -46,7 +47,7 @@ const signUp = [
       const hashPassword = await bcrypt.hash(password, 10);
       const user = new User({
         first_name: first_name,
-        last_name: last_name,
+        email: email,
         user_name: user_name,
         password: hashPassword,
         auth_token: null,
@@ -69,7 +70,7 @@ const signUp = [
         .json({ token: newToken, message: "User created successfully!" });
     } catch (error) {
       debugAuth("Error creating user", error);
-      return next(error);
+      return next(createError(500, "Internal Server Error"));
     }
   }),
 ];
@@ -85,19 +86,11 @@ const login = [
     try {
       const user = await User.findOne({ user_name: req.body.user_name }).exec();
       if (!user) {
-        return res.status(404).json({
-          errors: [
-            {
-              message: "User not found.",
-            },
-          ],
-        });
+        return next(createError(404, "User Not Found"));
       }
       const isMatch = await bcrypt.compare(req.body.password, user.password);
       if (!isMatch) {
-        return res.status(400).json({
-          errors: [{ message: "Invalid password." }],
-        });
+        return next(createError(400, "Incorrect Password"));
       }
       const payload = {
         _id: user._id,
@@ -115,14 +108,18 @@ const login = [
       });
     } catch (error) {
       debugAuth("Error with user login", error);
-      next(err);
+      next(createError(500, "Internal Server Error"));
     }
   }),
 ];
 
 const logout = asyncHandler(async (req, res, next) => {
   try {
-    const bearerToken = req.headers.authorization.split(" ")[1];
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return next(createError(400, "Your not logged in"));
+    }
+    const bearerToken = authHeader.split(" ")[1];
     const deserializedToken = jwt.verify(bearerToken, process.env.SECRET_KEY);
     await User.findByIdAndUpdate(deserializedToken._id, { auth_token: null });
     res.status(200).json({
@@ -130,11 +127,12 @@ const logout = asyncHandler(async (req, res, next) => {
     });
   } catch (error) {
     debugAuth("Error in logout method", error);
-    next(error);
+    return next(createError(500, "Internal Server Error"));
   }
 });
 
 function isSamePass(value, { req }) {
+  console.log("value", value);
   if (value === req.body.password) return true;
   else {
     throw new Error("Passwords do not match.");
