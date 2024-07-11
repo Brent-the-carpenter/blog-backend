@@ -55,9 +55,10 @@ const createPost = [
   body("title", "Title of blog post is required.").trim().escape(),
   body("content").customSanitizer(sanitizeContent),
   body("published").optional().isBoolean().withMessage("boolean is expected."),
+  body("thumbNail").optional().isURL().withMessage("URL is expected."),
 
   asyncHandler(async (req, res, next) => {
-    const { content, title, category, published } = req.body;
+    const { content, title, category, published, thumbNail } = req.body;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -75,13 +76,8 @@ const createPost = [
         title,
         category,
         published,
+        thumbNail,
       });
-
-      if (req.files && req.files.length) {
-        const files = req.files;
-        const uploadPromises = files.map((file) => uploadImage(file));
-        newPost.images = await Promise.all(uploadPromises);
-      }
 
       const savedPost = await newPost.save();
       return res.status(201).json(newPost);
@@ -100,9 +96,10 @@ const updatePost = [
   body("title", "Title of blog post is required.").optional().trim().escape(),
   body("content").optional().customSanitizer(sanitizeContent),
   body("published").optional().isBoolean().withMessage("boolean is expected."),
+  body("thumbNail").optional().isURL().withMessage("URL is expected."),
 
   asyncHandler(async (req, res, next) => {
-    const { author, content, title, category, published } = req.body;
+    const { author, content, title, category, published, thumbNail } = req.body;
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -116,15 +113,8 @@ const updatePost = [
         ...(title && { title }),
         ...(content && { content }),
         ...(published !== undefined && { published }),
+        ...(thumbNail && { thumbNail }),
       };
-
-      if (req.files && req.files.length) {
-        const files = req.files;
-        const uploadPromises = files.map((file) => uploadImage(file));
-        updateData.images = await Promise.all(uploadPromises);
-      } else if (req.body.images) {
-        updateData.images = req.body.images;
-      }
 
       const post = await Post.findByIdAndUpdate(req.params.postId, updateData, {
         new: true,

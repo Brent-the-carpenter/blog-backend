@@ -126,6 +126,9 @@ const logout = asyncHandler(async (req, res, next) => {
       message: "Logout successful",
     });
   } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return next(createError(401, "Token has expired"));
+    }
     debugAuth("Error in logout method", error);
     return next(createError(500, "Internal Server Error"));
   }
