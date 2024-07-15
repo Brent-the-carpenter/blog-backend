@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import app from "../app.js";
 import http from "http";
-import mongoose from "mongoose";
+import mongoose, { set } from "mongoose";
 import debug from "debug";
 
 const debugServer = debug("Server:");
@@ -60,6 +60,13 @@ function gracefullyShutDown() {
     debugServer("HTTP server closed");
     process.exit(0);
   });
+
+  setTimeout(() => {
+    console.error(
+      "Could not close connections in time, forcefully shutting down"
+    );
+    process.exit(1);
+  }, 10000);
 }
 
 process.on("SIGINT", gracefullyShutDown).on("SIGTERM", gracefullyShutDown);
