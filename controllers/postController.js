@@ -187,13 +187,26 @@ const deletePost = asyncHandler(async (req, res, next) => {
 
 const likePost = asyncHandler(async (req, res, next) => {
   console.log(req.params.postId);
+
   const post = await Post.findById(req.params.postId).exec();
   if (!post) {
     return next(createError(404, "Post not found"));
   }
+
   post.likes += 1;
   await post.save();
+
+  if (req.user) {
+    const user = await User.findById(req.user._id).exec();
+    if (!user.likedPosts.includes(post._id)) {
+      user.likedPosts.push(post._id);
+      await user.save();
+    }
+  }
+
   return res.status(200).json(post);
 });
+
+export default likePost;
 
 export { getPost, getPosts, deletePost, createPost, updatePost, likePost };

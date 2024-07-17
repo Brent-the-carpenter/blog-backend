@@ -3,6 +3,7 @@ import multer from "multer";
 import authenticate from "../middleware/authenticate.js";
 import checkPermissions from "../middleware/checkRole.js";
 import commentRouter from "./commentRoute.js";
+import checkForUser from "../middleware/checkForUser.js";
 import {
   getPost,
   getPosts,
@@ -43,6 +44,6 @@ router.put(
 //Delete post by id
 router.delete("/:postId", authenticate(), checkPermissions, deletePost);
 
-router.post("/:postId/like", authenticate(), likePost);
+router.post("/:postId/like", checkForUser, likePost);
 
 export default router;

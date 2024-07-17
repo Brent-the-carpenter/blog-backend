@@ -9,9 +9,10 @@ const UserSchema = new Schema({
   user_name: { type: String, required: true, unique: true, minlength: 4 },
   password: { type: String, required: true, minLength: 12 },
   comments: [{ type: Schema.ObjectId, ref: "Comment" }],
+  likedPosts: [{ type: Schema.ObjectId, ref: "Post" }],
   role: {
     type: String,
-    enum: ["user", "admin"],
+    enum: ["user", "admin", "member"],
     required: true,
     default: "user",
   },
