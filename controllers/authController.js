@@ -134,6 +134,25 @@ const logout = asyncHandler(async (req, res, next) => {
   }
 });
 
+const checkTokenExpiration = asyncHandler(async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return next(createError(400, "Your not logged in"));
+    }
+    const bearerToken = authHeader.split(" ")[1];
+    const deserializedToken = jwt.verify(bearerToken, process.env.SECRET_KEY);
+
+    return res.status(200).json({ message: "Token is valid" });
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return next(createError(401, "Token has expired"));
+    }
+    debugAuth("Error in logout method", error);
+    return next(createError(500, "Internal Server Error"));
+  }
+});
+
 function isSamePass(value, { req }) {
   console.log("value", value);
   if (value === req.body.password) return true;
@@ -141,4 +160,4 @@ function isSamePass(value, { req }) {
     throw new Error("Passwords do not match.");
   }
 }
-export { signUp, login, logout };
+export { signUp, login, logout, checkTokenExpiration };
